@@ -26,8 +26,9 @@ It also includes a **Cloudflare Dynamic DNS updater** to make each machine reach
 1. **Clone this repo** onto the target machine:
 
     ```bash
-    git clone git@github-station:Tapify-Romania/tapify-logging-agent.git
+    git clone git@github.com:Tapify-Romania/tapify-logging-agent.git
     cd tapify-logging-agent
+
     ```
 
 2. **Run the setup script:**
