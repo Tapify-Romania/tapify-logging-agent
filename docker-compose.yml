@@ -22,8 +22,3 @@ services:
       - '--path.sysfs=/host/sys'
       - '--path.rootfs=/rootfs'
       - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($|/)'
-  ddns-updater:
-    build:
-      context: ./ddns
-    container_name: ddns-updater
-    restart: unless-stopped
