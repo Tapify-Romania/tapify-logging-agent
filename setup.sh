@@ -2,34 +2,34 @@
 set -e
 
 PROMTAIL_VERSION="2.9.4"
-DDNS_TEMPLATE="ddns/.env.example"
-DDNS_ENV="ddns/.env"
+TEMPLATE_FILE=".env.example"
+OUTPUT_FILE=".env"
 
 # ────────────────────────────────────────────────────────────────
-# 🌐 Step 1: Prompt and generate ddns/.env
+# 📄 Step 1: Generate .env from .env.example
 # ────────────────────────────────────────────────────────────────
 
-if [ -f "$DDNS_ENV" ]; then
-  echo "⚠️  $DDNS_ENV already exists."
-  echo -n "❓ Do you want to recreate it from $DDNS_TEMPLATE? [y/N]: " > /dev/tty
+if [ -f "$OUTPUT_FILE" ]; then
+  echo "⚠️  $OUTPUT_FILE already exists."
+  echo -n "❓ Do you want to recreate it from $TEMPLATE_FILE? [y/N]: " > /dev/tty
   read recreate < /dev/tty
   if [[ "$recreate" =~ ^[Yy]$ ]]; then
-    recreate_ddns_env=true
+    recreate_env_file=true
   else
-    recreate_ddns_env=false
+    recreate_env_file=false
   fi
 else
-  recreate_ddns_env=true
+  recreate_env_file=true
 fi
 
-if $recreate_ddns_env; then
-  echo "🛠 Creating $DDNS_ENV from $DDNS_TEMPLATE..."
+if $recreate_env_file; then
+  echo "🛠 Creating $OUTPUT_FILE from $TEMPLATE_FILE..."
 
-  > "$DDNS_ENV"
+  > "$OUTPUT_FILE"
 
   while IFS= read -r line || [[ -n "$line" ]]; do
     if [[ "$line" =~ ^#.*$ || -z "$line" ]]; then
-      echo "$line" >> "$DDNS_ENV"
+      echo "$line" >> "$OUTPUT_FILE"
       continue
     fi
 
@@ -41,25 +41,27 @@ if $recreate_ddns_env; then
     read user_input < /dev/tty
 
     final_val="${user_input:-$default_val}"
-    echo "$key=$final_val" >> "$DDNS_ENV"
-  done < "$DDNS_TEMPLATE"
+    echo "$key=$final_val" >> "$OUTPUT_FILE"
+  done < "$TEMPLATE_FILE"
 
-  echo -e "\n✅ Final ddns/.env:"
-  cat "$DDNS_ENV"
+  echo -e "\n✅ Final .env:"
+  cat "$OUTPUT_FILE"
 else
-  echo "✅ Skipping $DDNS_ENV creation."
+  echo "✅ Skipping .env creation."
 fi
 
 # ────────────────────────────────────────────────────────────────
-# 🚀 Step 2: Pull Promtail image
+# 🧪 Step 2: Export env vars for other scripts
+# ────────────────────────────────────────────────────────────────
+
+export $(grep -v '^#' "$OUTPUT_FILE" | xargs)
+
+# ────────────────────────────────────────────────────────────────
+# 🚀 Step 3: Install Promtail + Node Exporter
 # ────────────────────────────────────────────────────────────────
 
 echo -e "\n📦 Pulling Promtail Docker image..."
 docker pull grafana/promtail:$PROMTAIL_VERSION
-
-# ────────────────────────────────────────────────────────────────
-# 🐳 Step 3: Start Docker Compose
-# ────────────────────────────────────────────────────────────────
 
 echo "🚀 Starting all containers with docker compose..."
 docker compose up -d

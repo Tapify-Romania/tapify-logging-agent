@@ -1,7 +1,10 @@
 # Tapify Logging Agent
 
-This repo contains the configuration and setup script for deploying **Promtail** on any Tapify machine to collect Docker logs and forward them to the central **Loki** instance hosted at [`loki.tapify.ro`](https://loki.tapify.ro).  
-It also includes a **Cloudflare Dynamic DNS updater** to make each machine reachable via a subdomain (even with dynamic IPs), enabling Prometheus scraping from a central location.
+This repo contains the configuration and setup script for deploying **Promtail** and **Node Exporter** on any Tapify machine to:
+
+- Collect Docker logs and forward them to the central **Loki** instance at [`loki.tapify.ro`](https://loki.tapify.ro)
+- Expose system metrics to **Prometheus** via a secure VPN connection
+- Generate and activate WireGuard VPN configs to securely connect each machine to the metrics server
 
 ---
 
@@ -15,32 +18,81 @@ It also includes a **Cloudflare Dynamic DNS updater** to make each machine reach
   - `job=docker`
 - Forwards logs securely to **Loki** for centralized analysis via **Grafana**
 
-### 🌐 Cloudflare DDNS
-- Automatically updates a specific subdomain (e.g., `station01.example.com`) via Cloudflare when the machine’s external IP changes
-- Ensures the machine remains reachable for **Prometheus** even on dynamic IPs
+### 🔐 WireGuard VPN
+- Stations connect to the metrics server over WireGuard using static IPs
+- No need for DDNS, public IPs, or port forwarding
+- Prometheus scrapes node-exporter metrics over the VPN
+- VPN interface is automatically started and enabled when configuring the station
 
 ---
 
 ## 🛠 Setup Instructions
 
-1. **Clone this repo** onto the target machine:
+### 1. Clone this repo onto the target machine:
+
+```bash
+git clone git@github.com:Tapify-Romania/tapify-logging-agent.git
+cd tapify-logging-agent
+```
+
+### 2. Run the setup script:
+
+```bash
+./setup.sh
+```
+
+This will:
+- Prompt for VPN details (server public key and endpoint)
+- Generate a `.env` file
+- Pull and start the required Docker containers (Promtail + Node Exporter)
+
+---
+
+## 🔧 Add the Station to the VPN
+
+Each station needs to be manually added to the VPN network:
+
+1. Run the WireGuard client setup script:
 
     ```bash
-    git clone git@github.com:Tapify-Romania/tapify-logging-agent.git
-    cd tapify-logging-agent
-
+    ./setup-wireguard-client.sh
     ```
 
-2. **Run the setup script:**
+2. When prompted, enter:
+    - A **station ID** (e.g. `station01`)
+    - A **static VPN IP** (e.g. `10.66.66.2`)
+
+3. The script will:
+    - Generate `wireguard/wg0-client.conf` and install it to `/etc/wireguard/wg0.conf`
+    - Start and enable the WireGuard interface
+    - Output `wireguard/peers.conf` — paste the `[Peer]` block into the metrics server's config
+
+4. On the **metrics server**, open:
 
     ```bash
-    ./setup.sh
+    sudo vim /etc/wireguard/wg0.conf
     ```
 
-    This will:
-    - Prompt you for Cloudflare credentials and generate `ddns/.env` from `ddns/.env.example`
-    - Pull the required Docker images
-    - Start Promtail, Node Exporter, and the Cloudflare DDNS updater
+    Paste the peer block, then reload WireGuard:
+
+    ```bash
+    sudo systemctl restart wg-quick@wg0
+    ```
+
+---
+
+## 🔄 Manually Start VPN (if needed)
+
+If the VPN interface was not started automatically (e.g., you skipped the setup script), run:
+
+```bash
+./start-wireguard.sh
+```
+
+This will:
+- Check if `/etc/wireguard/wg0.conf` exists
+- Enable and start the `wg0` interface
+- Print verification steps
 
 ---
 
@@ -48,9 +100,9 @@ It also includes a **Cloudflare Dynamic DNS updater** to make each machine reach
 
 - Docker and Docker Compose must be installed
 - Docker containers must use the `json-file` logging driver (default)
-- Your `docker-compose.yml` files should include `labels` like `project=api`, `project=dashboard`, etc.
+- WireGuard must be installed on both the station and the metrics server
 
-Example:
+Example `docker-compose.yml` service:
 
 ```yaml
 services:
@@ -66,57 +118,39 @@ services:
 
 ---
 
-## 🌐 Cloudflare DDNS Setup
-
-The first time you run `setup.sh`, you’ll be prompted for the following environment variables (from `ddns/.env.example`):
-
-```env
-CF_API_TOKEN=your_cloudflare_api_token
-CF_ZONE_ID=your_zone_id
-CF_RECORD_ID=your_dns_record_id
-CF_RECORD_NAME=station01.example.com
-```
-
-This `.env` file is used by the `ddns-updater` Docker container to:
-
-- Check the public IP of the machine every 5 minutes
-- Update the A record in Cloudflare if it changes
-
-> 📌 You can retrieve `ZONE_ID` and `RECORD_ID` using the [Cloudflare API](https://developers.cloudflare.com/api/).
-
----
-
 ## 📁 Files in this repo
 
 ```
 tapify-logging-agent/
-├── promtail-config.yml       # Promtail configuration
-├── docker-compose.yml        # Promtail + Node Exporter + DDNS updater
-├── setup.sh                  # Full setup script
-├── ddns/
-│   ├── .env.example          # Template for DDNS credentials
-│   ├── update-ddns.sh        # Cloudflare IP updater
-│   ├── entrypoint.sh         # Runs update loop every 5 minutes
-│   └── Dockerfile            # Lightweight Alpine-based updater container
-├── README.md                 # You're here
+├── docker-compose.yml             # Starts Promtail and Node Exporter
+├── promtail-config.yml            # Promtail configuration
+├── setup.sh                       # Prompts for VPN info and runs Docker setup
+├── setup-wireguard-client.sh      # Generates and installs client VPN config
+├── start-wireguard.sh             # Manually start WireGuard VPN if needed
+├── .env.example                   # Template for server public key and endpoint
+├── .env                           # Local config generated from .env.example (ignored from Git)
+├── wireguard/
+│   ├── .gitkeep                   # Ensures folder is tracked
+│   ├── wg0-client.conf            # Generated client config (ignored from Git)
+│   ├── peers.conf                 # Peer block to paste into metrics server config
+│   └── keys/                      # Private/public keys per station (ignored from Git)
 ```
 
 ---
 
 ## 📍 Notes
 
-- Promtail and the DDNS container run with `restart: unless-stopped` so they persist across reboots
-- Logs can be filtered in Grafana by `project`, `host`, or `container_name`
+- VPN client configs and keys are stored in `wireguard/` but ignored by Git
+- VPN setup is reproducible using `.env`
+- Prometheus scrapes stations over VPN (e.g., `10.66.66.2:9100`)
 - Loki endpoint is hardcoded to `https://loki.tapify.ro` — update it in `promtail-config.yml` if needed
 
 ---
 
 ## 📊 View Logs in Grafana
 
-Go to: [https://metrics.tapify.ro](https://metrics.tapify.ro)
+Visit: [https://metrics.tapify.ro](https://metrics.tapify.ro)
 
-Then:
-
-1. Explore → Select Data Source: **Loki**
-2. Filter by `project`, `host`, `container`, etc.
-3. Visualize or alert as needed
+1. Go to **Explore**
+2. Select Data Source: **Loki**
+3. Filter logs by `project`, `host`, or `container`

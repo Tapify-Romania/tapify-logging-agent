@@ -1,2 +1,5 @@
 .env
 *.log
+
+/wireguard/*
+!/wireguard/.gitkeep
