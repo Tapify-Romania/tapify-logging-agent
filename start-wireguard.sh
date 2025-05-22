@@ -4,7 +4,7 @@ set -e
 WG_IFACE="wg0"
 WG_CONF="/etc/wireguard/$WG_IFACE.conf"
 
-if [ ! -f "$WG_CONF" ]; then
+if ! sudo test -f "$WG_CONF"; then
   echo "❌ WireGuard config not found at $WG_CONF"
   echo "ℹ️ Run ./setup-wireguard-client.sh first to generate and install it."
   exit 1
