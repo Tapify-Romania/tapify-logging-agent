@@ -67,7 +67,6 @@ cat <<EOF > "$CONF_OUT"
 [Interface]
 PrivateKey = $PRIVATE_KEY
 Address = $CLIENT_IP/32
-DNS = 1.1.1.1
 
 [Peer]
 PublicKey = $WG_SERVER_PUBLIC_KEY
