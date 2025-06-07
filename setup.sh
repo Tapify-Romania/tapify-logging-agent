@@ -78,12 +78,6 @@ echo "✅ All containers are up and running."
 # 🚀 Step 4: Install Netbird
 # ────────────────────────────────────────────────────────────────
 
-# Wait for apt lock to be released
-while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
-  echo "⏳ Waiting for apt lock to be released..."
-  sleep 5
-done
-
 echo -e "\n📦 Installing Netbird..."
 curl -fsSL https://pkgs.netbird.io/install.sh | bash
 
