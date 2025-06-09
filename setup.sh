@@ -91,9 +91,27 @@ if [ ! -f "$PROMTAIL_CONFIG" ]; then
   exit 1
 fi
 
+# Ensure the nobody user is added to the docker group
+if ! groups nobody | grep -q "\bdocker\b"; then
+  echo "👤 Adding nobody user to the docker group..."
+  sudo usermod -aG docker nobody
+else
+  echo "✅ nobody user is already a member of the docker group."
+fi
+
+# Ensure the /var/lib/promtail directory exists with correct permissions
+PROMTAIL_DATA_DIR="/var/lib/promtail"
+if [ ! -d "$PROMTAIL_DATA_DIR" ]; then
+  echo "📂 Creating Promtail data directory at $PROMTAIL_DATA_DIR..."
+  sudo mkdir -p "$PROMTAIL_DATA_DIR"
+  sudo chown nobody:nogroup "$PROMTAIL_DATA_DIR"
+else
+  echo "✅ Promtail data directory already exists at $PROMTAIL_DATA_DIR."
+fi
+
 # Ensure Promtail configuration directory exists
 PROMTAIL_CONFIG_DIR="/etc/promtail"
-PROMTAIL_CONFIG_FILE="$PROMTAIL_CONFIG_DIR/config.yaml"
+PROMTAIL_CONFIG_FILE="$PROMTAIL_CONFIG_DIR/config.yml"
 
 if [ ! -d "$PROMTAIL_CONFIG_DIR" ]; then
   echo "📂 Creating Promtail configuration directory at $PROMTAIL_CONFIG_DIR..."
