@@ -66,13 +66,78 @@ fi
 # 🚀 Step 3: Install Promtail + Node Exporter
 # ────────────────────────────────────────────────────────────────
 
-echo -e "\n📦 Pulling Promtail Docker image..."
-docker pull grafana/promtail:$PROMTAIL_VERSION
+echo -e "\n📦 Installing Promtail..."
+PROMTAIL_VERSION="2.9.4"
+PROMTAIL_URL="https://github.com/grafana/loki/releases/download/v$PROMTAIL_VERSION/promtail-linux-amd64.zip"
+PROMTAIL_BINARY="/usr/local/bin/promtail"
 
-echo "🚀 Starting all containers with docker compose..."
-docker compose up -d
+# Download and install Promtail
+curl -sL "$PROMTAIL_URL" -o promtail.zip
+unzip -o promtail.zip -d .
+sudo mv promtail-linux-amd64 "$PROMTAIL_BINARY"
+sudo chmod +x "$PROMTAIL_BINARY"
+rm promtail.zip
 
-echo "✅ All containers are up and running."
+# Use existing promtail-config.yml
+PROMTAIL_CONFIG="$(dirname "$0")/promtail-config.yml"
+if [ ! -f "$PROMTAIL_CONFIG" ]; then
+  echo "❌ promtail-config.yml not found in the script directory. Please add it and re-run the script."
+  exit 1
+fi
+
+# Create Promtail service
+sudo tee /etc/systemd/system/promtail.service > /dev/null <<EOF
+[Unit]
+Description=Promtail Service
+After=network.target
+
+[Service]
+ExecStart=$PROMTAIL_BINARY --config.file=$PROMTAIL_CONFIG
+Restart=always
+User=nobody
+Group=nogroup
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable promtail
+sudo systemctl start promtail
+echo "✅ Promtail installed and running."
+
+echo -e "\n📦 Installing Node Exporter..."
+NODE_EXPORTER_VERSION="1.6.1"
+NODE_EXPORTER_URL="https://github.com/prometheus/node_exporter/releases/download/v$NODE_EXPORTER_VERSION/node_exporter-$NODE_EXPORTER_VERSION.linux-amd64.tar.gz"
+NODE_EXPORTER_BINARY="/usr/local/bin/node_exporter"
+
+# Download and install Node Exporter
+curl -sL "$NODE_EXPORTER_URL" -o node_exporter.tar.gz
+tar -xvf node_exporter.tar.gz --strip-components=1 -C . "node_exporter-$NODE_EXPORTER_VERSION.linux-amd64/node_exporter"
+sudo mv node_exporter "$NODE_EXPORTER_BINARY"
+sudo chmod +x "$NODE_EXPORTER_BINARY"
+rm node_exporter.tar.gz
+
+# Create Node Exporter service
+sudo tee /etc/systemd/system/node_exporter.service > /dev/null <<EOF
+[Unit]
+Description=Node Exporter
+After=network.target
+
+[Service]
+ExecStart=$NODE_EXPORTER_BINARY
+Restart=always
+User=nobody
+Group=nogroup
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable node_exporter
+sudo systemctl start node_exporter
+echo "✅ Node Exporter installed and running."
 
 # ────────────────────────────────────────────────────────────────
 # 🚀 Step 4: Install Netbird
