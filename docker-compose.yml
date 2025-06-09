@@ -16,10 +16,8 @@ services:
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
-      - /:/host:ro,rslave     # <-- note “/host” and the propagation flag rslave
+      - /:/host:ro,rbind
     command:
       - '--path.procfs=/host/proc'
       - '--path.sysfs=/host/sys'
       - '--path.rootfs=/host'
-      # if you keep this flag, leave root (/) out of the regex!
-      - '--collector.filesystem.ignored-mount-points=^/(dev|proc|sys|var/lib/docker/.+)($|/)'
