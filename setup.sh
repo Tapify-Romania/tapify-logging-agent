@@ -91,6 +91,23 @@ if [ ! -f "$PROMTAIL_CONFIG" ]; then
   exit 1
 fi
 
+# Ensure Promtail configuration directory exists
+PROMTAIL_CONFIG_DIR="/etc/promtail"
+PROMTAIL_CONFIG_FILE="$PROMTAIL_CONFIG_DIR/config.yaml"
+
+if [ ! -d "$PROMTAIL_CONFIG_DIR" ]; then
+  echo "📂 Creating Promtail configuration directory at $PROMTAIL_CONFIG_DIR..."
+  sudo mkdir -p "$PROMTAIL_CONFIG_DIR"
+fi
+
+# Copy the Promtail configuration file if it doesn't already exist
+if [ ! -f "$PROMTAIL_CONFIG_FILE" ]; then
+  echo "📄 Copying Promtail configuration file to $PROMTAIL_CONFIG_FILE..."
+  sudo cp "$(dirname "$0")/promtail-config.yml" "$PROMTAIL_CONFIG_FILE"
+else
+  echo "✅ Promtail configuration file already exists at $PROMTAIL_CONFIG_FILE. Skipping copy."
+fi
+
 # Create Promtail service
 sudo tee /etc/systemd/system/promtail.service > /dev/null <<EOF
 [Unit]
@@ -98,7 +115,7 @@ Description=Promtail Service
 After=network.target
 
 [Service]
-ExecStart=$PROMTAIL_BINARY --config.file=$PROMTAIL_CONFIG
+ExecStart=/usr/local/bin/promtail --config.file=$PROMTAIL_CONFIG_FILE
 Restart=always
 User=nobody
 Group=nogroup
@@ -107,10 +124,12 @@ Group=nogroup
 WantedBy=multi-user.target
 EOF
 
+# Reload systemd and enable the Promtail service
 sudo systemctl daemon-reload
 sudo systemctl enable promtail
-sudo systemctl start promtail
-echo "✅ Promtail installed and running."
+sudo systemctl restart promtail
+echo "✅ Promtail service configured and running."
+
 
 echo -e "\n📦 Installing Node Exporter..."
 NODE_EXPORTER_VERSION="1.6.1"
