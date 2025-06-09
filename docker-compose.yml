@@ -11,14 +11,15 @@ services:
     image: prom/node-exporter:latest
     container_name: node-exporter
     restart: unless-stopped
-    pid: "host"
-    network_mode: "host"
+    pid: host                 # pull host PID namespace (needed for some collectors)
+    network_mode: host        # expose :9100 directly
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
-      - /:/rootfs:ro
+      - /:/host:ro,rslave     # <-- note “/host” and the propagation flag rslave
     command:
       - '--path.procfs=/host/proc'
       - '--path.sysfs=/host/sys'
-      - '--path.rootfs=/rootfs'
+      - '--path.rootfs=/host'
+      # if you keep this flag, leave root (/) out of the regex!
       - '--collector.filesystem.ignored-mount-points=^/(dev|proc|sys|var/lib/docker/.+)($|/)'
