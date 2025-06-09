@@ -66,6 +66,12 @@ fi
 # 🚀 Step 3: Install Promtail + Node Exporter
 # ────────────────────────────────────────────────────────────────
 
+# Ensure required dependencies are installed
+if ! command -v unzip &> /dev/null; then
+  echo "📦 Installing required dependency: unzip..."
+  sudo apt-get update -y && sudo apt-get install -y unzip
+fi
+
 echo -e "\n📦 Installing Promtail..."
 PROMTAIL_VERSION="2.9.4"
 PROMTAIL_URL="https://github.com/grafana/loki/releases/download/v$PROMTAIL_VERSION/promtail-linux-amd64.zip"
