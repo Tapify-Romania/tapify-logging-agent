@@ -1,0 +1,24 @@
+[Unit]
+Description=Tapify sanitized service and Identity job telemetry
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/tapify-observability/telemetry.py
+Restart=on-failure
+RestartSec=5s
+StateDirectory=tapify-observability
+UMask=0027
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/tapify-observability-metrics /var/log/tapify-observability
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+CapabilityBoundingSet=
+RestrictSUIDSGID=yes
+MemoryMax=256M
+
+[Install]
+WantedBy=multi-user.target

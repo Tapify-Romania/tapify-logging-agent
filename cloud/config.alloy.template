@@ -1,0 +1,59 @@
+local.file "grafana_token" {
+  filename  = sys.env("CREDENTIALS_DIRECTORY") + "/grafana_token"
+  is_secret = true
+}
+
+prometheus.exporter.unix "host" {
+  set_collectors = ["cpu", "diskstats", "filesystem", "loadavg", "meminfo", "netdev", "stat", "textfile", "time", "uname", "vmstat"]
+  textfile {
+    directory = "/var/lib/tapify-observability-metrics"
+  }
+}
+
+prometheus.scrape "host" {
+  targets         = prometheus.exporter.unix.host.targets
+  scrape_interval = "30s"
+  job_name        = "tapify-host"
+  forward_to      = [prometheus.relabel.production.receiver]
+}
+
+prometheus.relabel "production" {
+  forward_to = [prometheus.remote_write.cloud.receiver]
+  rule {
+    target_label = "job"
+    replacement  = "tapify-host"
+  }
+  rule {
+    target_label = "host"
+    replacement  = @@HOST@@
+  }
+  rule {
+    target_label = "environment"
+    replacement  = "production"
+  }
+}
+
+prometheus.remote_write "cloud" {
+  endpoint {
+    url = @@METRICS_URL@@
+    basic_auth {
+      username = @@METRICS_USERNAME@@
+      password = local.file.grafana_token.content
+    }
+  }
+}
+
+loki.source.file "sanitized_events" {
+  targets = [{__path__ = "/var/log/tapify-observability/events.log", host = @@HOST@@, environment = "production", job = "tapify-observability"}]
+  forward_to = [loki.write.cloud.receiver]
+}
+
+loki.write "cloud" {
+  endpoint {
+    url = @@LOGS_URL@@
+    basic_auth {
+      username = @@LOGS_USERNAME@@
+      password = local.file.grafana_token.content
+    }
+  }
+}
