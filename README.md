@@ -1,5 +1,10 @@
 # Tapify Logging Agent
 
+For the current Grafana Cloud deployment, use [cloud/README.md](cloud/README.md).
+It uses Grafana Alloy, encrypted collector credentials, host/service metrics,
+Identity job monitoring and sanitized operational log summaries. The legacy
+Promtail setup below is retained as a historical self-hosted reference.
+
 This repo contains the configuration and setup script for deploying **Promtail** and **Node Exporter** on any Tapify machine to:
 
 - Collect Docker logs and forward them to the central **Loki** instance at [`loki.tapify.ro`](https://loki.tapify.ro)

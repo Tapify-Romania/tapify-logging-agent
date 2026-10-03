@@ -1,0 +1,26 @@
+[Unit]
+Description=Tapify Grafana Alloy collector
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=alloy
+Group=alloy
+LoadCredentialEncrypted=grafana_token:/etc/credstore.encrypted/tapify-alloy-token.cred
+ExecStart=/usr/local/bin/alloy run --server.http.listen-addr=127.0.0.1:12345 --storage.path=/var/lib/alloy /etc/alloy/config.alloy
+Restart=on-failure
+RestartSec=5s
+StateDirectory=alloy
+UMask=0027
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+CapabilityBoundingSet=
+RestrictSUIDSGID=yes
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target
