@@ -17,6 +17,31 @@ prometheus.scrape "host" {
   forward_to      = [prometheus.relabel.production.receiver]
 }
 
+// @@BEGIN_PROD_ONLY@@
+// Tapify API metrics (KAN-159). The API publishes them on host loopback only
+// (127.0.0.1:9464); this collector pushes them with the existing credentials.
+prometheus.scrape "api" {
+  targets         = [{"__address__" = "127.0.0.1:9464"}]
+  metrics_path    = "/metrics"
+  scrape_interval = "30s"
+  scrape_timeout  = "10s"
+  job_name        = "tapify-api"
+  forward_to      = [prometheus.relabel.api.receiver]
+}
+
+prometheus.relabel "api" {
+  forward_to = [prometheus.remote_write.cloud.receiver]
+  rule {
+    target_label = "host"
+    replacement  = @@HOST@@
+  }
+  rule {
+    target_label = "environment"
+    replacement  = "production"
+  }
+}
+// @@END_PROD_ONLY@@
+
 prometheus.relabel "production" {
   forward_to = [prometheus.remote_write.cloud.receiver]
   rule {

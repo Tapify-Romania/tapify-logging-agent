@@ -36,6 +36,12 @@ or `identity`) and `host` (`tapify-prod-1` or `tapify-identity-1`). Metrics are 
 `/var/log/tapify-observability/events.log`. Helper state is private under
 `/var/lib/tapify-observability`.
 
+On the prod host Alloy also scrapes the Tapify API's Prometheus endpoint on
+host loopback (`127.0.0.1:9464`, published by the API's Compose file) as job
+`tapify-api` and pushes it with the same collector credentials. The block is
+marked prod-only in the template and removed when rendering for other hosts.
+Metric names and label rules are documented in `tapify-api/docs/metrics.md`.
+
 Run focused checks with `python3 -m unittest discover -s cloud -p 'test_*.py'`.
 Validate rendered Alloy configurations with the pinned binary before activation.
 `deploy.py --host <tapify-prod|tapify-identity> --artifacts <approved-directory>`
