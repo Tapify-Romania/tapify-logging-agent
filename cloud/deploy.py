@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 import urllib.parse
@@ -15,6 +16,23 @@ TARGETS = {
     "tapify-prod": ("prod", "tapify-prod-1"),
     "tapify-identity": ("identity", "tapify-identity-1"),
 }
+
+
+PROD_ONLY = re.compile(
+    r"^// @@BEGIN_PROD_ONLY@@\n(.*?)^// @@END_PROD_ONLY@@\n", re.S | re.M
+)
+
+
+def render_config(template, role, host, values):
+    """Render the public Alloy configuration; secrets are never substituted."""
+    # Prod-only blocks (the API scrape) are kept without their markers on the
+    # prod host and removed elsewhere, so other hosts have no dead targets.
+    config = PROD_ONLY.sub(lambda m: m.group(1) if role == "prod" else "", template)
+    for name, value in {"HOST": host, **values}.items():
+        config = config.replace("@@" + name + "@@", json.dumps(value))
+    if "@@" in config:
+        raise ValueError("Unresolved configuration")
+    return config
 
 
 def digest(path):
@@ -97,14 +115,12 @@ def main():
         values[name].isdigit() for name in ["METRICS_USERNAME", "LOGS_USERNAME"]
     ):
         raise ValueError("Invalid tenant identifier")
-    config = (HERE / "config.alloy.template").read_text()
-    for name, value in {
-        "HOST": host,
-        **{k: v for k, v in values.items() if k != "ACCESS_POLICY_TOKEN"},
-    }.items():
-        config = config.replace("@@" + name + "@@", json.dumps(value))
-    if "@@" in config:
-        raise ValueError("Unresolved configuration")
+    config = render_config(
+        (HERE / "config.alloy.template").read_text(),
+        role,
+        host,
+        {k: v for k, v in values.items() if k != "ACCESS_POLICY_TOKEN"},
+    )
     target = args.artifacts / (host + ".alloy")
     target.write_text(config)
     run([str(args.artifacts / "alloy-darwin-arm64"), "validate", str(target)])
